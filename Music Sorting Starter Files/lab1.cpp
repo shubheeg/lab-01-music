@@ -35,6 +35,7 @@
 #include <iostream>
 #include <algorithm> // std::sort
 #include <getopt.h>
+#include <string>
 #include "sorting.h"
 
 
