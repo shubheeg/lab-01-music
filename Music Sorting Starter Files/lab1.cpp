@@ -261,7 +261,7 @@ void MusicLibrary::read_data() {
 
     // Reserve the exact amount of memory needed
     // to fit all the songs.
-    music.reserve(num_songs);
+    music.reserve(size_t(num_songs));
 
     // Read to the end of the CSV file.
     while (std::getline(std::cin, song.name, ',')) {
@@ -314,7 +314,7 @@ void MusicLibrary::run() {
     // Print out the first num_print songs with the
     // overloaded stream insertion operator.   
     for (int i = 0; i < num_print; ++i)
-        std::cout << music[i] << std::endl;
+        std::cout << music[size_t(i)] << std::endl;
 }
 
 
