@@ -20,16 +20,19 @@
 #######################
 # TODO (begin) #
 #######################
-# Change IDENTIFIER to match the project identifier given in the project spec.
-IDENTIFIER = CD7E23DEB13C1B8840F765F9016C084FD5D3F130
+# Change 'youruniqname' to match your UM uniqname (no quote marks).
+UNIQNAME    = youruniqname
 
-# Change EXECUTABLE to match the command name given in the project spec.
-EXECUTABLE  = executable
-DEBUG       = $(EXECUTABLE)_debug
+# Change the right hand side of the identifier to match the project identifier
+# given in the project or lab specification.
+IDENTIFIER  = CD7E23DEB13C1B8840F765F9016C084FD5D3F130
 
-# The following line looks for a project's main() in a file named project*.cpp,
+# Change 'executable' to match the command name given in the project spec.
+EXECUTABLE  = lab1
+
+# The following line looks for a project's main() in files named project*.cpp,
 # executable.cpp (substituted from EXECUTABLE above), or main.cpp
-PROJECTFILE = $(or $(wildcard project*.cpp), $(wildcard $(EXECUTABLE).cpp), main.cpp)
+PROJECTFILE = $(or $(wildcard project*.cpp $(EXECUTABLE).cpp), main.cpp)
 # If main() is in another file delete line above, edit and uncomment below
 #PROJECTFILE = mymainfile.cpp
 #######################
@@ -44,8 +47,8 @@ LD_RUN_PATH := /usr/um/gcc-6.2.0/lib64
 # This is the path from the CAEN home folder to where projects will be
 # uploaded. (eg. /home/mmdarden/eecs281/project1)
 # Change this if you prefer a different path.
-# REMOTE_BASEDIR := w18/eecs281    # /home/mmdarden/w18/eecs281/project0
-REMOTE_BASEDIR := eecs281
+# REMOTE_PATH := eecs281_$(EXECUTABLE)_sync  # /home/mmdarden/eecs281_proj0_sync
+REMOTE_PATH := eecs281_$(EXECUTABLE)_sync
 
 # designate which compiler to use
 CXX         = g++
@@ -62,8 +65,9 @@ SOURCES     := $(filter-out $(TESTSOURCES), $(SOURCES))
 OBJECTS     = $(SOURCES:%.cpp=%.o)
 
 # name of the tarball created for submission
-PARTIAL_SUBMITFILE = partialsubmit.tar.gz
 FULL_SUBMITFILE = fullsubmit.tar.gz
+PARTIAL_SUBMITFILE = partialsubmit.tar.gz
+UNGRADED_SUBMITFILE = ungraded.tar.gz
 
 # name of the perf data file, only used by the clean target
 PERF_FILE = perf.data*
@@ -76,15 +80,21 @@ CXXFLAGS = -std=c++1z -Wconversion -Wall -Werror -Wextra -pedantic
 release: CXXFLAGS += -O3 -DNDEBUG
 release: $(EXECUTABLE)
 
-# make debug - will compile "all" with $(CXXFLAGS) and the -g flag
+# make debug - will compile sources with $(CXXFLAGS) and the -g3 flag
 #              also defines DEBUG, so "#ifdef DEBUG /*...*/ #endif" works
-debug: EXECUTABLE := $(DEBUG)
 debug: CXXFLAGS += -g3 -DDEBUG
-debug: clean $(EXECUTABLE)
+debug:
+	$(CXX) $(CXXFLAGS) $(SOURCES) -o $(EXECUTABLE)_debug
 
-# make profile - will compile "all" with $(CXXFLAGS) and the -pg flag
-profile: CXXFLAGS += -pg
-profile: clean $(EXECUTABLE)
+# make profile - will compile "all" with $(CXXFLAGS) and the -g3 and -O3 flags
+profile: CXXFLAGS += -g3 -O3
+profile:
+	$(CXX) $(CXXFLAGS) $(SOURCES) -o $(EXECUTABLE)_profile
+	
+# make gprof - will compile "all" with $(CXXFLAGS) and the -pg (for gprof)
+gprof: CXXFLAGS += -pg
+gprof:
+	$(CXX) $(CXXFLAGS) $(SOURCES) -o $(EXECUTABLE)_profile
 
 # make static - will perform static analysis in the matter currently used
 #               on the autograder
@@ -96,12 +106,15 @@ static:
 #                   include the project identifier; skip subdirectories;
 #                   also removes old submit tarballs, they are outdated
 identifier:
-	@if [ $$(grep --include=*.{h,hpp,c,cpp} --exclude=xcode_redirect.hpp --directories=skip -L $(IDENTIFIER) * | wc -l) -ne 0 ]; then echo -n "Missing project identifier in file(s): ";echo `grep --include=*.{h,hpp,c,cpp} --directories=skip -L $(IDENTIFIER) *`;rm -f $(PARTIAL_SUBMITFILE) $(FULL_SUBMITFILE); exit 1; fi
+	@if [ $$(grep --include=*.{h,hpp,c,cpp} --exclude=xcode_redirect.hpp --directories=skip -L $(IDENTIFIER) * | wc -l) -ne 0 ]; then \
+		printf "Missing project identifier in file(s): "; \
+		echo `grep --include=*.{h,hpp,c,cpp} --directories=skip -L $(IDENTIFIER) *`; \
+		rm -f $(PARTIAL_SUBMITFILE) $(FULL_SUBMITFILE); \
+		exit 1; \
+	fi
 
-# Build both release and debug executables
-all: clean
-	$(MAKE) -Rr release
-	$(MAKE) debug
+# Build all executables
+all: release debug profile
 
 $(EXECUTABLE): $(OBJECTS)
 ifeq ($(EXECUTABLE), executable)
@@ -127,7 +140,7 @@ define make_tests
 endef
 $(foreach test, $(TESTS), $(eval $(call make_tests, $(test))))
 
-alltests: clean $(TESTS)
+alltests: $(TESTS)
 
 # rule for creating objects
 %.o: %.cpp
@@ -135,44 +148,65 @@ alltests: clean $(TESTS)
 
 # make clean - remove .o files, executables, tarball
 clean:
-	rm -f $(OBJECTS) $(EXECUTABLE) $(DEBUG) $(TESTS) \
-      $(PARTIAL_SUBMITFILE) $(FULL_SUBMITFILE) $(PERF_FILE)
+	rm -f $(OBJECTS) $(EXECUTABLE) $(EXECUTABLE)_debug $(EXECUTABLE)_profile \
+      $(TESTS) $(PARTIAL_SUBMITFILE) $(FULL_SUBMITFILE) $(PERF_FILE) \
+      $(UNGRADED_SUBMITFILE)
 	rm -Rf *.dSYM
 
-# make partialsubmit.tar.gz - cleans, creates tarball
-# omitting test cases
-PARTIAL_SUBMITFILES=$(filter-out $(TESTSOURCES), \
-                      $(wildcard Makefile *.h *.hpp *.cpp))
-$(PARTIAL_SUBMITFILE): $(PARTIAL_SUBMITFILES)
-	rm -f $(PARTIAL_SUBMITFILE) $(FULL_SUBMITFILE)
-	COPYFILE_DISABLE=true tar -vczf $(PARTIAL_SUBMITFILE) \
-      $(PARTIAL_SUBMITFILES)
-	@echo !!! WARNING: No test cases included. Use 'make fullsubmit' to include test cases. !!!
 
-# make fullsubmit.tar.gz - cleans, runs dos2unix, creates tarball
-# including test cases
+# get a list of all files that might be included in a submit
+# different submit types can do additional filtering to remove unwanted files
 FULL_SUBMITFILES=$(filter-out $(TESTSOURCES), \
                    $(wildcard Makefile *.h *.hpp *.cpp test*.txt))
+
+# make fullsubmit.tar.gz - cleans, runs dos2unix, creates tarball
+# including test files
 $(FULL_SUBMITFILE): $(FULL_SUBMITFILES)
-	rm -f $(PARTIAL_SUBMITFILE) $(FULL_SUBMITFILE)
+	rm -f $(PARTIAL_SUBMITFILE) $(FULL_SUBMITFILE) $(UNGRADED_SUBMITFILE)
 	COPYFILE_DISABLE=true tar -vczf $(FULL_SUBMITFILE) $(FULL_SUBMITFILES)
-	@echo !!! Final submission prepared, test cases included... READY FOR GRADING !!!
+	@echo !!! Final submission prepared, test files included... READY FOR GRADING !!!
+
+# make partialsubmit.tar.gz - cleans, creates tarball
+# omitting test files
+PARTIAL_SUBMITFILES=$(filter-out $(wildcard test*.txt), $(FULL_SUBMITFILES))
+$(PARTIAL_SUBMITFILE): $(PARTIAL_SUBMITFILES)
+	rm -f $(PARTIAL_SUBMITFILE) $(FULL_SUBMITFILE) $(UNGRADED_SUBMITFILE)
+	COPYFILE_DISABLE=true tar -vczf $(PARTIAL_SUBMITFILE) \
+      $(PARTIAL_SUBMITFILES)
+	@echo !!! WARNING: No test files included. Use 'make fullsubmit' to include test files. !!!
+
+# make ungraded.tar.gz - cleans, creates tarball omitting test files, Makefile
+UNGRADED_SUBMITFILES=$(filter-out Makefile, $(PARTIAL_SUBMITFILES))
+$(UNGRADED_SUBMITFILE): $(UNGRADED_SUBMITFILES)
+	rm -f $(PARTIAL_SUBMITFILE) $(FULL_SUBMITFILE) $(UNGRADED_SUBMITFILE)
+	@touch __ungraded
+	COPYFILE_DISABLE=true tar -vczf $(UNGRADED_SUBMITFILE) \
+      $(UNGRADED_SUBMITFILES) __ungraded
+	@rm -f __ungraded
+	@echo !!! WARNING: This submission will not be graded. !!!
 
 # shortcut for make submit tarballs
-partialsubmit: identifier $(PARTIAL_SUBMITFILE)
 fullsubmit: identifier $(FULL_SUBMITFILE)
+partialsubmit: identifier $(PARTIAL_SUBMITFILE)
+ungraded: identifier $(UNGRADED_SUBMITFILE)
 
-sync2caen: REMOTE_PATH := ${REMOTE_BASEDIR}/$(notdir $(shell pwd))
+# REMOTE_PATH has default definition above
 sync2caen:
 	# Synchronize local files into target directory on CAEN
 	rsync \
       -av \
       --delete \
+      --exclude '*.o' \
+      --exclude '$(EXECUTABLE)' \
+      --exclude '$(EXECUTABLE)_debug' \
+      --exclude '$(EXECUTABLE)_profile' \
       --exclude '.git*' \
-      --exclude '.vs*' \  
-	  --filter=":- .gitignore" \
-      ./ \
-      "login.engin.umich.edu:'${REMOTE_PATH}'/"
+      --exclude '.vs*' \
+      --exclude '*.code-workspace' \
+      --filter=":- .gitignore" \
+      "."/ \
+      "$(UNIQNAME)@login.engin.umich.edu:'$(REMOTE_PATH)/'"
+	echo "Files synced to CAEN at ~/$(REMOTE_PATH)/"
 
 define MAKEFILE_HELP
 EECS281 Advanced Makefile Help
@@ -196,7 +230,7 @@ EECS281 Advanced Makefile Help
        free submissions if the project does not build.
            $$ make partialsubmit
     B) Build 'fullsubmit.tar.gz' a tarball complete with autograder test
-       cases.
+       files.
 
            *** ALWAYS USE THIS FOR FINAL GRADING! ***
 
@@ -255,7 +289,7 @@ help:
 #
 # THE COMPILER CAN GENERATE DEPENDENCIES FROM SOURCE CODE
 #
-# % g++ -MM *.cpp
+# % g++ -std=c++1z -MM *.cpp
 #
 # ADD YOUR OWN DEPENDENCIES HERE
 
@@ -265,6 +299,6 @@ help:
 
 # these targets do not create any files
 .PHONY: all release debug profile static clean alltests partialsubmit \
-        fullsubmit sync2caen help identifier
+        fullsubmit ungraded sync2caen help identifier
 # disable built-in rules
 .SUFFIXES:
