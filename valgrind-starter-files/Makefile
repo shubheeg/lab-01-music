@@ -28,13 +28,13 @@ UNIQNAME    = youruniqname
 IDENTIFIER  = EEC50281EEC50281EEC50281EEC50281EEC50281
 
 # Change 'executable' to match the command name given in the project spec.
-EXECUTABLE  = profiling
+EXECUTABLE  = lab1_bad
 
 # The following line looks for a project's main() in files named project*.cpp,
 # executable.cpp (substituted from EXECUTABLE above), or main.cpp
-PROJECTFILE = $(or $(wildcard project*.cpp $(EXECUTABLE).cpp), main.cpp)
+#PROJECTFILE = $(or $(wildcard project*.cpp $(EXECUTABLE).cpp), main.cpp)
 # If main() is in another file delete line above, edit and uncomment below
-#PROJECTFILE = mymainfile.cpp
+PROJECTFILE = lab1_bad.cpp
 
 # This is the path from the CAEN home folder to where projects will be
 # uploaded. (eg. /home/mmdarden/eecs281/project1)
